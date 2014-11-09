@@ -83,10 +83,12 @@ class Backup(object):
                 volume.get("id"),
                 force=True,
                 display_name="snapshot_%s_%s"
-                             % (volume.get("display_name"), execution_datetime),
+                             % (volume.get("display_name"), execution_datetime)
 
             )
-            metadata.append([snapshot.created_at, snapshot.id, snapshot.size, volume.get("display_name")])
+            metadata.append({"created": snapshot.created_at, "id": snapshot.id, 
+			     "size": snapshot.size, 
+			     "display_name": volume.get("display_name")})
         return metadata
 
     #----------------------------------------------------------------
@@ -135,10 +137,10 @@ class Backup(object):
         metadata = []
         for snap_id in snapshots:
             while True:
-                status = self.get_snapshot_status(snap_id[1])
-		volume_size = snap_id[2]
-                snapshot_id = snap_id[1]
-                volume_name = "temp_%s" % snap_id[3]
+                snapshot_id = snap_id.get("id")
+		volume_size = snap_id.get("size")
+                volume_name = "backup_%s" % snap_id.get("display_name")
+		status = self.get_snapshot_status(snapshot_id)
                 if status == "available":
 		    print "Creating temporary volume: %s" % volume_name
                     temp_volume = cinder_client.volumes.create(volume_size, snapshot_id=snapshot_id, 
@@ -146,9 +148,11 @@ class Backup(object):
 		    metadata.append(temp_volume.id)
                     break
                 elif status == "error":
-                    sys.exit("Unable to create temporary volume. Snapshot status for snapshot: %s is in error state!" % snapshot_id)
+                    sys.exit("Unable to create temporary volume. "
+			     "Snapshot status for snapshot: %s is in error state!" % snapshot_id)
                 else:
-                    print "Snapshot: %s is still in creating state. Waiting for 2 seconds ..." % snapshot_id
+                    print "Snapshot: %s is still in creating state. " \
+			  "Waiting for 2 seconds ..." % snapshot_id
                     time.sleep(2)
         return metadata
 
@@ -166,14 +170,21 @@ class Backup(object):
             while True:
                 vol = self.get_volume_metadata(uuid)
                 status = vol.get("status")
-                backup_name = "backup%s" % vol.get("display_name").replace("temp", '')
+		volume_name = vol.get("display_name")
+                backup_name = volume_name.replace("backup_", "backup_of_")
                 if status == "available":
 		    print "Creating backup: %s" % backup_name
-  		    backup_vol = cinder_client.backups.create(uuid, name=backup_name)
-		    metadata.append({"id": backup_vol.id, "boot": vol.get('is_bootable')})
+  		    backup_vol = cinder_client.backups.create(
+			uuid, name=backup_name)
+		    metadata.append({"id": backup_vol.id, 
+				     "boot": vol.get('is_bootable')})
                     break
+		elif status == "error":
+		    sys.exit("Unable to create backup of temporary volume %s. " 
+			     "Status for temporary volume is in error state!" % volume_name)
                 else:
-                    print "Temporary volume: %s is still in creating state. Waiting for 5 seconds ..." % vol.get("display_name")
+                    print "Temporary volume: %s is still in creating state. " \
+			  "Waiting for 5 seconds ..." % volume_name
                     time.sleep(5)
         return metadata
 
@@ -185,3 +196,4 @@ if __name__ == "__main__":
     snapshots = server.create_snapshots(get_volumes)
     create_vol = server.create_temp_volume(snapshots)
     backup = server.create_backup(create_vol)
+    print backup
