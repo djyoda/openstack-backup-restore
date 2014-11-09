@@ -45,7 +45,7 @@ class Backup(object):
         volumes = getattr(server_object, 'os-extended-volumes:volumes_attached')
         metadata = []
         for volume in volumes:
-            metadata.append(self.get_volume_metadata(volume.get('id')))
+            metadata.append(self.get_volume_metadata(volume.get("id")))
         return metadata
 
     #-------------------------------------------------------------------
@@ -80,13 +80,13 @@ class Backup(object):
         metadata = []
         for volume in volumes:
             snapshot = cinder_client.volume_snapshots.create(
-                volume.get('id'),
+                volume.get("id"),
                 force=True,
                 display_name="snapshot_%s_%s"
-                             % (volume.get('display_name'), execution_datetime),
+                             % (volume.get("display_name"), execution_datetime),
 
             )
-            metadata.append([snapshot.created_at, snapshot.id, snapshot.size, volume.get('display_name')])
+            metadata.append([snapshot.created_at, snapshot.id, snapshot.size, volume.get("display_name")])
         return metadata
 
     #----------------------------------------------------------------
@@ -100,6 +100,28 @@ class Backup(object):
 	"""
         snap_stat = cinder_client.volume_snapshots.get(snapshot_id)
         return snap_stat.status
+
+    #----------------------------------------------------------------
+    def delete_snapshot(self, snapshot_id):
+        """
+        Delete snapshot
+
+        :param snapshot_id: Snapshot ID
+        :type snapshit_id: str
+        """
+        cinder_client.volume_snapshots.delete(snapshot_id)
+        print "Deleting snapshot: %s" % snapshot_id
+
+    #----------------------------------------------------------------
+    def delete_volume(self, volume_uuid):
+        """
+        Delete snapshot
+
+        :param snapshot_id: Volume UUID
+        :type snapshit_id: str
+        """
+        cinder_client.volumes.delete(volume_uuid)
+        print "Deleting volume: %s" % volume_uuid
 
     #---------------------------------------------------------------
     def create_temp_volume(self, snapshots):
@@ -118,15 +140,15 @@ class Backup(object):
                 snapshot_id = snap_id[1]
                 volume_name = "temp_%s" % snap_id[3]
                 if status == "available":
-		    print "Creating temporary volume %s" % volume_name
+		    print "Creating temporary volume: %s" % volume_name
                     temp_volume = cinder_client.volumes.create(volume_size, snapshot_id=snapshot_id, 
 							       display_name=volume_name)
 		    metadata.append(temp_volume.id)
                     break
                 elif status == "error":
-                    sys.exit("Unable to create temporary volume. Snapshot %s status is in error state!" % snapshot_id)
+                    sys.exit("Unable to create temporary volume. Snapshot status for snapshot: %s is in error state!" % snapshot_id)
                 else:
-                    print "Snapshot %s is still in creating state. Waiting for 2 seconds ..." % snapshot_id
+                    print "Snapshot: %s is still in creating state. Waiting for 2 seconds ..." % snapshot_id
                     time.sleep(2)
         return metadata
 
@@ -143,22 +165,22 @@ class Backup(object):
         for uuid in volumes_uuid:
             while True:
                 vol = self.get_volume_metadata(uuid)
-                status = vol.get('status')
-                backup_name = "backup%s" % vol.get('display_name').replace('temp', '')
+                status = vol.get("status")
+                backup_name = "backup%s" % vol.get("display_name").replace("temp", '')
                 if status == "available":
-		    print "Creating backup %s" % backup_name
+		    print "Creating backup: %s" % backup_name
   		    backup_vol = cinder_client.backups.create(uuid, name=backup_name)
-		    metadata.append([backup_vol.id, backup_vol.name, vol.get('is_bootable')])
+		    metadata.append([backup_vol.id, backup_vol.name, vol.get("is_bootable")])
                     break
                 else:
-                    print "Temporary volume %s is still in creating state. Waiting for 5 seconds ..." % vol.get('display_name')
+                    print "Temporary volume: %s is still in creating state. Waiting for 5 seconds ..." % vol.get("display_name")
                     time.sleep(5)
         return metadata
 
 
 
 if __name__ == "__main__":
-    server = Backup('241876d3-5a80-44b2-b88f-93d23a20fd15')
+    server = Backup("241876d3-5a80-44b2-b88f-93d23a20fd15")
     get_volumes = server.get_attached_volumes()
     snapshots = server.create_snapshots(get_volumes)
     create_vol = server.create_temp_volume(snapshots)
