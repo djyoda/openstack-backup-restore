@@ -185,7 +185,3 @@ if __name__ == "__main__":
     snapshots = server.create_snapshots(get_volumes)
     create_vol = server.create_temp_volume(snapshots)
     backup = server.create_backup(create_vol)
-
-q
-q
-    print backup
