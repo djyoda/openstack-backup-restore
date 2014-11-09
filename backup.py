@@ -170,7 +170,7 @@ class Backup(object):
                 if status == "available":
 		    print "Creating backup: %s" % backup_name
   		    backup_vol = cinder_client.backups.create(uuid, name=backup_name)
-		    metadata.append([backup_vol.id, backup_vol.name, vol.get("is_bootable")])
+		    metadata.append({"id": backup_vol.id, "boot": vol.get('is_bootable')})
                     break
                 else:
                     print "Temporary volume: %s is still in creating state. Waiting for 5 seconds ..." % vol.get("display_name")
@@ -185,3 +185,7 @@ if __name__ == "__main__":
     snapshots = server.create_snapshots(get_volumes)
     create_vol = server.create_temp_volume(snapshots)
     backup = server.create_backup(create_vol)
+
+q
+q
+    print backup
