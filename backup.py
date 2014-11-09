@@ -107,7 +107,7 @@ class Backup(object):
         Delete snapshot
 
         :param snapshot_id: Snapshot ID
-        :type snapshit_id: str
+        :type snapshot_id: str
         """
         cinder_client.volume_snapshots.delete(snapshot_id)
         print "Deleting snapshot: %s" % snapshot_id
@@ -118,7 +118,7 @@ class Backup(object):
         Delete snapshot
 
         :param snapshot_id: Volume UUID
-        :type snapshit_id: str
+        :type snapshot_id: str
         """
         cinder_client.volumes.delete(volume_uuid)
         print "Deleting volume: %s" % volume_uuid
