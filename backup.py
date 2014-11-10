@@ -228,6 +228,3 @@ if __name__ == "__main__":
     create_vol = server.create_temp_volume(snapshots)
     backup = server.create_backup(create_vol)
     server.delete_temp_volume(create_vol)
-   # print backup
-#server = Backup("f5b56c67-8695-493a-931d-c26aa068d23b")
-#server.delete_temp_volume(['14b2f461-37d1-4de7-9bf4-faeded405294', '2b32d6f7-9380-4887-aaef-9e6794084899'])
