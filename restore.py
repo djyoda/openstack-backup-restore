@@ -39,7 +39,8 @@ class Restore(object):
         self.backup = backup
 
     # -------------------------------------------------------------------
-    def get_backup_status(self, backup_id):
+    @classmethod
+    def get_backup_status(cls, backup_id):
         """
         Returns backup status
         :param backup_id: Backup ID
