@@ -50,7 +50,7 @@ class Restore(object):
         status = backup.status
         return status
 
-    #-------------------------------------------------------------------
+    # -------------------------------------------------------------------
     def get_flavor(self, server_id):
         """
         Returns Flavor ID
@@ -134,18 +134,31 @@ class Restore(object):
         flavor = self.get_flavor(self.server_id)
         old_vm = nova_client.servers.get(self.server_id)
         vm_name = old_vm.name
-        new_wm = nova_client.servers.create(vm_name, '', flavor, block_device_mapping=device_map)
-        status = new_wm.status
-        while status == "build":
-            instance = nova_client.servers.get(new_wm.id)
+        new_vm = nova_client.servers.create(vm_name, '', flavor, block_device_mapping=device_map)
+        status = new_vm.status
+        while status == "BUILD":
+            time.sleep(5)
+            instance = nova_client.servers.get(new_vm.id)
             status = instance.status
-            print "Restoring wm %s from backup has been completed with status: %s" % (new_wm.id, status)
-        return new_wm.id
+            print "Restoring vm: %s from backup has been completed with status: %s" % (new_vm.id, status)
+        return new_vm.id
+
+
+def main():
+    # Provide server id
+    server_id = sys.argv[1]
+    # Provide list of backup IDs
+    backups = sys.argv[2:]
+    vm = Restore(server_id, backups)
+    # Restore backups
+    restoring_bckp = vm.restore_backup()
+    # Get device mapping from current vm instance
+    dev_mapping = vm.get_dev_mapping()
+    # Do device remapping for new vm instance
+    dev_remap = vm.get_dev_remapping(restoring_bckp, dev_mapping)
+    # Create new vm instance
+    vm.create_vm(dev_remap)
+
 
 if __name__ == "__main__":
-    vm = Restore('f5b56c67-8695-493a-931d-c26aa068d23b',
-             ["0a22a8c0-5c03-4e11-af10-42b075e07c5e", "0abdb9c2-a1b6-4e24-94cf-8912a8beff07"])
-    restoring_bckp = vm.restore_backup()
-    dev_mapping = vm.get_dev_mapping()
-    dev_remap = vm.get_dev_remapping(restoring_bckp, dev_mapping)
-    new_instance = vm.create_vm(dev_remap)
+    main()
