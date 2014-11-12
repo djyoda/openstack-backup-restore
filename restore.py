@@ -73,17 +73,14 @@ class Restore(object):
                 restore = cinder_client.restores.restore(bckp_id)
                 volume = Backup.get_volume_metadata(restore.volume_id)
                 volume_status = volume.get("status")
-
                 if volume_status == "error_restoring":
                     sys.exit("There was some problem with restoring the backup."
                              "The new volume: %s has state: %s." % (restore.volume_id, volume_status))
-
                 while volume_status == "restoring-backup":
                     print "Restoring backup is in progress ..."
                     time.sleep(10)
                     volume = Backup.get_volume_metadata(restore.volume_id)
                     volume_status = volume.get("status")
-
                 volume_name = volume.get("display_name")
                 metadata[str(volume_name)] = str(restore.volume_id)
             elif status == "error":
@@ -132,8 +129,8 @@ class Restore(object):
         :rtype: str
         """
         flavor = self.get_flavor(self.server_id)
-        old_vm = nova_client.servers.get(self.server_id)
-        vm_name = old_vm.name
+        current_vm = nova_client.servers.get(self.server_id)
+        vm_name = current_vm.name
         new_vm = nova_client.servers.create(vm_name, '', flavor, block_device_mapping=device_map)
         status = new_vm.status
         while status == "BUILD":
