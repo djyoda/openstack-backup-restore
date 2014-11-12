@@ -20,7 +20,7 @@ nova_client = NovaClient(2, username, password, tenant_id, auth_url)
 execution_datetime = datetime.now().isoformat()
 
 
-# #######################################################################
+#########################################################################
 class Backup(object):
     """Class for backup volumes attached to VM"""
 
@@ -34,7 +34,7 @@ class Backup(object):
         """
         self.server_id = server_id
 
-    #-------------------------------------------------------------------
+    # -------------------------------------------------------------------
     def get_attached_volumes(self):
         """
         Returns list of attached volumes
@@ -48,8 +48,9 @@ class Backup(object):
             metadata.append(self.get_volume_metadata(volume.get("id")))
         return metadata
 
-    #-------------------------------------------------------------------
-    def get_volume_metadata(self, volume_uuid):
+    # -------------------------------------------------------------------
+    @classmethod
+    def get_volume_metadata(cls, volume_uuid):
         """
         Return dict with volume metadata
     
@@ -187,13 +188,12 @@ class Backup(object):
                     print "Creating backup: %s" % backup_name
                     backup_vol = cinder_client.backups.create(
                         uuid, name=backup_name)
-                    metadata.append({"id": backup_vol.id,
-                                     "boot": vol.get('bootable')})
+                    metadata.append(backup_vol.id)
                     break
                 else:
                     sys.exit("Unable to create backup of temporary volume %s. "
                              "Temporary volume: %s has no available state. The state is %s: !" % (
-                             volume_name, volume_name, status))
+                                 volume_name, volume_name, status))
         return metadata
 
     #--------------------------------------------------------------
@@ -246,11 +246,24 @@ class Backup(object):
                         time.sleep(5)
 
 
-if __name__ == "__main__":
-    server = Backup("f5b56c67-8695-493a-931d-c26aa068d23b")
+# --------------------------------------------------------------
+def main():
+    # Provide vm instance id
+    server_id = sys.argv[1]
+    server = Backup(server_id)
+    # Get all attached volumes for vm instance
     get_volumes = server.get_attached_volumes()
+    # Create snapshots from attached volumes
     snapshots = server.create_snapshots(get_volumes)
+    # Create temporary volumes from snapshots
     create_vol = server.create_temp_volume(snapshots)
-    backup = server.create_backup(create_vol)
+    # Create backups from temporary volumes
+    server.create_backup(create_vol)
+    # Delete temporary volumes
     server.delete_temp_volume(create_vol)
+    # Delete temporary snapshots
     server.delete_temp_snapshot(snapshots)
+
+
+if __name__ == "__main__":
+    main()
