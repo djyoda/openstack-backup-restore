@@ -2,6 +2,8 @@
 
 import os
 import sys
+import logging
+import config_ini
 
 from datetime import datetime
 import time
@@ -20,6 +22,8 @@ cinder_client = CinderClient(1, username, password, tenant_id, auth_url)
 nova_client = NovaClient(2, username, password, tenant_id, auth_url)
 
 execution_datetime = datetime.now().isoformat()
+
+appLogger = logging.getLogger(__name__)
 
 
 # #######################################################################
@@ -70,22 +74,25 @@ class Restore(object):
         for bckp_id in self.backup:
             status = self.get_backup_status(bckp_id)
             if status == "available":
-                print "Restoring the backup: %s" % bckp_id
+                appLogger.info("Restoring backup: %s" % bckp_id)
                 restore = cinder_client.restores.restore(bckp_id)
                 volume = Backup.get_volume_metadata(restore.volume_id)
                 volume_status = volume.get("status")
                 if volume_status == "error_restoring":
-                    sys.exit("There was some problem with restoring the backup."
-                             "The new volume: %s has state: %s." % (restore.volume_id, volume_status))
+                    appLogger.error("There was some problem with restoring the backup. "
+                                    "The new volume: %s has state: %s." % (restore.volume_id, volume_status))
+                    sys.exit()
                 while volume_status == "restoring-backup":
-                    print "Restoring backup is in progress ..."
+                    appLogger.debug("Restoring backup is in progress. Wait for 10 sec...")
                     time.sleep(10)
                     volume = Backup.get_volume_metadata(restore.volume_id)
                     volume_status = volume.get("status")
                 volume_name = volume.get("display_name")
                 metadata[str(volume_name)] = str(restore.volume_id)
             elif status == "error":
-                sys.exit("Backup %s is in error state!" % bckp_id)
+                appLogger.error("Backup %s is in error state!" % bckp_id)
+                sys.exit()
+        appLogger.debug("Restored volumes metadata %s: " % metadata)
         return metadata
 
     #-------------------------------------------------------------------
@@ -103,6 +110,7 @@ class Restore(object):
             device = volume.attachments.pop()
             device_map = str(device.get("device"))
             metadata[str(uuid.get("display_name"))] = {device_map: str(volume_uuid)}
+        appLogger.debug("Current device mapping %s: " % metadata)
         return metadata
 
     #-------------------------------------------------------------------
@@ -121,6 +129,7 @@ class Restore(object):
             dev_map[key][dev_map[key].keys()[0]] = new_map[key]
         for k, v in dev_map.iteritems():
             new_dev_map.update(v)
+        appLogger.debug("New device mapping %s: " % new_dev_map)
         return new_dev_map
 
     #-------------------------------------------------------------------
@@ -132,13 +141,16 @@ class Restore(object):
         flavor = self.get_flavor(self.server_id)
         current_vm = nova_client.servers.get(self.server_id)
         vm_name = current_vm.name
+        appLogger.info("Creating new vm from backup started")
         new_vm = nova_client.servers.create(vm_name, '', flavor, block_device_mapping=device_map)
         status = new_vm.status
         while status == "BUILD":
             time.sleep(5)
             instance = nova_client.servers.get(new_vm.id)
             status = instance.status
-            print "Restoring vm: %s from backup has been completed with status: %s" % (new_vm.id, status)
+            appLogger.info("Restoring vm: %s from backup has been completed with status: %s"
+                           % (new_vm.id, status))
+        appLogger.debug("New vm id: %s " % new_vm.id)
         return new_vm.id
 
 
@@ -156,6 +168,7 @@ def main():
     dev_remap = vm.get_dev_remapping(restoring_bckp, dev_mapping)
     # Create new vm instance
     vm.create_vm(dev_remap)
+    appLogger.info("Creating new vm is finished")
 
 
 if __name__ == "__main__":
