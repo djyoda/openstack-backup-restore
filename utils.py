@@ -44,8 +44,8 @@ class VolumeUtils(object):
         """
         try:
             volume = cinder_client.volumes.get(volume_id)
-        except cinderclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         return {
@@ -69,8 +69,8 @@ class VolumeUtils(object):
         """
         try:
             server_object = nova_client.servers.get(server_id)
-        except novaclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except novaclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         attached_volumes = getattr(server_object, 'os-extended-volumes:volumes_attached')
@@ -120,8 +120,8 @@ class VolumeUtils(object):
             temporary_volume = cinder_client.volumes.create(volume_size, snapshot_id=snapshot_id,
                                                             display_name=volume_name,
                                                             metadata={"device": volume_metadata})
-        except cinderclient.exceptions.OverLimit, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.OverLimit as err:
+            appLogger.error(err)
             sys.exit()
 
         appLogger.info("Creating temporary volume from snapshot %s" % snapshot_id)
@@ -183,8 +183,8 @@ class SnapshotUtils(object):
         """
         try:
             snapshot = cinder_client.volume_snapshots.get(snapshot_id)
-        except cinderclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         return {
@@ -205,8 +205,8 @@ class SnapshotUtils(object):
         """
         try:
             snapshot = cinder_client.volume_snapshots.get(snapshot_id)
-        except cinderclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         return snapshot.status
@@ -224,8 +224,8 @@ class SnapshotUtils(object):
             snapshot = cinder_client.volume_snapshots.create(
                 volume_id, force=True, display_name="snapshot_%s_%s"
                                                     % (volume_id, execution_datetime))
-        except cinderclient.exceptions.OverLimit, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.OverLimit as err:
+            appLogger.error(err)
             sys.exit()
 
         appLogger.info("Creating temporary snapshot %s" % snapshot.id)
@@ -283,8 +283,8 @@ class BackupUtils(object):
         """
         try:
             backup_info = cinder_client.backups.get(backup_id)
-        except cinderclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except cinderclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         return {
@@ -311,8 +311,8 @@ class BackupUtils(object):
             if status == "available":
                 try:
                     backup_volume = cinder_client.backups.create(volume_id, name=backup_name)
-                except cinderclient.exceptions.NotFound, error:
-                    appLogger.error(error)
+                except cinderclient.exceptions.NotFound as err:
+                    appLogger.error(err)
                     sys.exit()
                 appLogger.info("Creating backup from temporary volume %s" % volume_id)
                 backup_id = backup_volume.id
@@ -337,8 +337,8 @@ class BackupUtils(object):
         if status == "available":
             try:
                 restore = cinder_client.restores.restore(backup_id)
-            except cinderclient.exceptions.OverLimit, error:
-                appLogger.error(error)
+            except cinderclient.exceptions.OverLimit as err:
+                appLogger.error(err)
                 sys.exit()
 
             appLogger.info("Restoring volume from backup %s" % backup_id)
@@ -384,8 +384,8 @@ class InstanceUtils(object):
         """
         try:
             vm_instance = nova_client.servers.get(self.server_id)
-        except novaclient.exceptions.NotFound, error:
-            appLogger.error(error)
+        except novaclient.exceptions.NotFound as err:
+            appLogger.error(err)
             sys.exit()
 
         return {
@@ -411,14 +411,14 @@ class InstanceUtils(object):
             volume_metadata = volume_info.get("metadata")
             try:
                 device_map.update({str(volume_metadata['device']): str(volume_id)})
-            except KeyError, error:
-                appLogger.error(error)
+            except KeyError as err:
+                appLogger.error(err)
                 sys.exit()
 
         try:
             new_vm = nova_client.servers.create(vm_name, None, flavor, block_device_mapping=device_map)
-        except NameError, error:
-            appLogger.error(error)
+        except NameError as err:
+            appLogger.error(err)
             sys.exit()
 
         status = new_vm.status
