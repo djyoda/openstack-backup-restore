@@ -1,175 +1,46 @@
 #!/usr/bin/env python
 
-import os
 import sys
-import logging
-import config_ini
 
-from datetime import datetime
-import time
-
-from cinderclient.client import Client as CinderClient
-from novaclient.client import Client as NovaClient
-
-from backup import Backup
-
-username = os.environ['OS_USERNAME']
-password = os.environ['OS_PASSWORD']
-tenant_id = os.environ['OS_TENANT_NAME']
-auth_url = os.environ['OS_AUTH_URL']
-
-cinder_client = CinderClient(1, username, password, tenant_id, auth_url)
-nova_client = NovaClient(2, username, password, tenant_id, auth_url)
-
-execution_datetime = datetime.now().isoformat()
-
-appLogger = logging.getLogger(__name__)
+from utils import BackupUtils
+from utils import InstanceUtils
 
 
-# #######################################################################
+#########################################################################
 class Restore(object):
-    """Class for restore VM from volume backup"""
+    """Class for volume backup"""
 
-    # -------------------------------------------------------------------
-    def __init__(self, server_id, backup):
+    #--------------------------------------------------------------------
+    def __init__(self, server_id, backups):
         """
         Constructor
-        :param server_id: VM ID
+
+        :param server_id: VM instance ID
         :type server_id: str
-        :param backup: List of backup ids
-        :type backup: list
+        :param backups: List of backup id's
+        :type backups: list
         """
         self.server_id = server_id
-        self.backup = backup
+        self.backups = backups
 
-    # -------------------------------------------------------------------
-    @classmethod
-    def get_backup_status(cls, backup_id):
+    #----------------------------------------------------------------
+    def do_restore(self):
         """
-        Returns backup status
-        :param backup_id: Backup ID
-        :type backup_id: str
-        :rtype: str
+        Performs a restore from volume backup
         """
-        backup = cinder_client.backups.get(backup_id)
-        status = backup.status
-        return status
+        restored_volumes = []
 
-    # -------------------------------------------------------------------
-    def get_flavor(self, server_id):
-        """
-        Returns Flavor ID
-        :rtype: class
-        """
-        vm_instance = nova_client.servers.get(server_id)
-        return nova_client.flavors.get(vm_instance.flavor.get("id"))
+        for backup_id in self.backups:
+            restore = BackupUtils().restore_volume_backup(backup_id)
+            restored_volumes.append(restore)
 
-    #-------------------------------------------------------------------
-    def restore_backup(self):
-        """
-        Restore backup from backup volume
-        :rtype: dict
-        """
-        metadata = {}
-        for bckp_id in self.backup:
-            status = self.get_backup_status(bckp_id)
-            if status == "available":
-                appLogger.info("Restoring backup: %s" % bckp_id)
-                restore = cinder_client.restores.restore(bckp_id)
-                volume = Backup.get_volume_metadata(restore.volume_id)
-                volume_status = volume.get("status")
-                if volume_status == "error_restoring":
-                    appLogger.error("There was some problem with restoring the backup. "
-                                    "The new volume: %s has state: %s." % (restore.volume_id, volume_status))
-                    sys.exit()
-                while volume_status == "restoring-backup":
-                    appLogger.debug("Restoring backup is in progress. Wait for 10 sec...")
-                    time.sleep(10)
-                    volume = Backup.get_volume_metadata(restore.volume_id)
-                    volume_status = volume.get("status")
-                volume_name = volume.get("display_name")
-                metadata[str(volume_name)] = str(restore.volume_id)
-            elif status == "error":
-                appLogger.error("Backup %s is in error state!" % bckp_id)
-                sys.exit()
-        appLogger.debug("Restored volumes metadata %s: " % metadata)
-        return metadata
-
-    #-------------------------------------------------------------------
-    def get_dev_mapping(self):
-        """
-        Returns device mapping for volumes attached to vm
-        :rtype: dict
-        """
-        metadata = {}
-        volumes = Backup(self.server_id)
-        attached_volumes = volumes.get_attached_volumes()
-        for uuid in attached_volumes:
-            volume_uuid = uuid.get("id")
-            volume = cinder_client.volumes.get(volume_uuid)
-            device = volume.attachments.pop()
-            device_map = str(device.get("device"))
-            metadata[str(uuid.get("display_name"))] = {device_map: str(volume_uuid)}
-        appLogger.debug("Current device mapping %s: " % metadata)
-        return metadata
-
-    #-------------------------------------------------------------------
-    def get_dev_remapping(self, old_map, dev_map):
-        """
-        :param old_map: Dictionary returned from restore_backup.
-        :type old_map: dict
-        :param dev_map: Dictionary returned from get_dev_mapping.
-        :type dev_map: dict
-        :rtype: dict
-         """
-        new_dev_map, new_map = {}, {}
-        for k, v in old_map.iteritems():
-            new_map[k.replace('backup_', '')] = v
-        for key in new_map.keys():
-            dev_map[key][dev_map[key].keys()[0]] = new_map[key]
-        for k, v in dev_map.iteritems():
-            new_dev_map.update(v)
-        appLogger.debug("New device mapping %s: " % new_dev_map)
-        return new_dev_map
-
-    #-------------------------------------------------------------------
-    def create_vm(self, device_map):
-        """
-        Create VM instance
-        :rtype: str
-        """
-        flavor = self.get_flavor(self.server_id)
-        current_vm = nova_client.servers.get(self.server_id)
-        vm_name = current_vm.name
-        appLogger.info("Creating new vm from backup started")
-        new_vm = nova_client.servers.create(vm_name, '', flavor, block_device_mapping=device_map)
-        status = new_vm.status
-        while status == "BUILD":
-            time.sleep(5)
-            instance = nova_client.servers.get(new_vm.id)
-            status = instance.status
-            appLogger.info("Restoring vm: %s from backup has been completed with status: %s"
-                           % (new_vm.id, status))
-        appLogger.debug("New vm id: %s " % new_vm.id)
-        return new_vm.id
-
-
-def main():
-    # Provide server id
-    server_id = sys.argv[1]
-    # Provide list of backup IDs
-    backups = sys.argv[2:]
-    vm = Restore(server_id, backups)
-    # Restore backups
-    restoring_bckp = vm.restore_backup()
-    # Get device mapping from current vm instance
-    dev_mapping = vm.get_dev_mapping()
-    # Do device remapping for new vm instance
-    dev_remap = vm.get_dev_remapping(restoring_bckp, dev_mapping)
-    # Create new vm instance
-    vm.create_vm(dev_remap)
-    appLogger.info("Creating new vm is finished")
+        return restored_volumes
 
 
 if __name__ == "__main__":
-    main()
+    server_id = sys.argv[1]
+    backups_id = sys.argv[2:]
+    restored_backup = Restore(server_id, backups_id)
+    volumes_id = restored_backup.do_restore()
+    vm = InstanceUtils(server_id, volumes_id)
+    vm.create_vm()
