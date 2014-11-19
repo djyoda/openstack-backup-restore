@@ -409,7 +409,11 @@ class InstanceUtils(object):
         for volume_id in self.volumes_id:
             volume_info = VolumeUtils().get_volume_info(volume_id)
             volume_metadata = volume_info.get("metadata")
-            device_map.update({str(volume_metadata['device']): str(volume_id)})
+            try:
+                device_map.update({str(volume_metadata['device']): str(volume_id)})
+            except KeyError, error:
+                appLogger.error(error)
+                sys.exit()
 
         try:
             new_vm = nova_client.servers.create(vm_name, None, flavor, block_device_mapping=device_map)
