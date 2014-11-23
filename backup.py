@@ -3,7 +3,6 @@
 import sys
 import logging
 import config_ini
-
 import utils
 
 
@@ -44,7 +43,10 @@ class Backup(object):
         return backups
 
 
-if __name__ == "__main__":
+def main():
     server_id = sys.argv[1]
     backup = Backup(server_id)
-    backup.do_backup()
+    create_backup = backup.do_backup()
+
+if __name__ == "__main__":
+    main()

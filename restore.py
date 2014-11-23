@@ -48,11 +48,16 @@ class Restore(object):
         """
         device_map = self.do_restore_backup()
 
-        utils.create_vm(self.server_id, device_map)
+        new_vm = utils.create_vm(self.server_id, device_map)
+
+        return new_vm
 
 
-if __name__ == "__main__":
+def main():
     server_id = sys.argv[1]
     backups_id = sys.argv[2:]
     restore = Restore(server_id, backups_id)
-    restore_vm = restore.do_restore_vm()
+    restore.do_restore_vm()
+
+if __name__ == "__main__":
+    main()
