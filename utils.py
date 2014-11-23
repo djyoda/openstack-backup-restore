@@ -320,6 +320,22 @@ def restore_volume_backup(backup_id):
 
 
 #-------------------------------------------------------------------
+def delete_backup(backup_id):
+    """
+    :param backup_id: backup id
+    :type backup_id: str
+    """
+    status = get_backup_info(backup_id).get('status')
+
+    if status == 'available':
+        cinder_client.backups.delete(backup_id)
+        appLogger.info('Deleting backup: %s' % backup_id)
+    else:
+        appLogger.error('Unable to delete backup: %s. The backup status is %s'
+                        % (backup_id, status))
+
+
+#-------------------------------------------------------------------
 def get_device_mapping(backup_id, volume_id):
     """
     Restore volume from backup
