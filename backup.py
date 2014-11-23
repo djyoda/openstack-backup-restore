@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import sys
+import logging
+import config_ini
 
-from utils import VolumeUtils
-from utils import SnapshotUtils
-from utils import BackupUtils
+import utils
 
 
 ##########################################################################
@@ -16,7 +16,7 @@ class Backup(object):
         """
         Constructor
 
-        :param server_id: VM ID
+        :param server_id: VM instance id
         :type server_id: str
         """
         self.server_id = server_id
@@ -25,57 +25,23 @@ class Backup(object):
     def do_backup(self):
         """
         Performs a volume backup
+
+        :returns: Returns list of backup id's
+        :rtype: list
         """
 
-        snapshots, volumes, backups = [], [], []
-        attached_volumes = VolumeUtils.get_attached_volumes(self.server_id)
+        backups = []
+        attached_volumes = utils.get_attached_volumes(self.server_id)
 
-        for volume_id in attached_volumes:
-            snapshot = SnapshotUtils()
-            snapshot_id = snapshot.create_snapshot(volume_id.get("id"))
-            snapshots.append(snapshot_id)
-
-        for snapshot_id in snapshots:
-            temporary_volume = VolumeUtils.create_temp_volume(snapshot_id)
-            volumes.append(temporary_volume)
-
-        for volume_id in volumes:
-            backup_volume = BackupUtils.create_volume_backup(volume_id)
-            backups.append(backup_volume)
-            VolumeUtils.delete_temporary_volume(volume_id)
-
-        for snapshot_id in snapshots:
-            SnapshotUtils().delete_temp_snapshot(snapshot_id)
+        for volume in attached_volumes:
+            snapshot = utils.create_snapshot(volume.id)
+            temporary_volume = utils.create_temp_volume(snapshot)
+            backup = utils.create_volume_backup(temporary_volume, volume.device)
+            backups.append(backup)
+            utils.delete_temporary_volume(temporary_volume)
+            utils.delete_temp_snapshot(snapshot)
 
         return backups
-
-
-#########################################################################
-class Restore(object):
-    """Class for volume backup"""
-
-    #--------------------------------------------------------------------
-    def __init__(self, backups):
-        """
-        Constructor
-
-        :param backups: List of backup id's
-        :type backups: list
-        """
-        self.backups = backups
-
-    #----------------------------------------------------------------
-    def do_restore(self):
-        """
-        Performs a restore from volume backup
-        """
-        restored_volumes = []
-
-        for backup_id in self.backups:
-            restore = BackupUtils().restore_volume_backup(backup_id)
-            restored_volumes.append(restore)
-
-        return restored_volumes
 
 
 if __name__ == "__main__":
